@@ -14,6 +14,7 @@
 """OTU clustering"""
 
 import argparse
+import collections
 import sys
 import os
 import gzip
@@ -25,16 +26,17 @@ from typing import Iterator, Dict, List
 # https://github.com/briney/nwalign3
 # ftp://ftp.ncbi.nih.gov/blast/matrices/
 import nwalign3 as nw
+import numpy as np
+np.int = int
 
-__author__ = "Your Name"
+__author__ = "Thanina CHABANE"
 __copyright__ = "Universite Paris Diderot"
-__credits__ = ["Your Name"]
+__credits__ = ["Thanina CHABANE"]
 __license__ = "GPL"
 __version__ = "1.0.0"
-__maintainer__ = "Your Name"
-__email__ = "your@email.fr"
+__maintainer__ = "Thanina CHABANE"
+__email__ = "thanina.chabane@etu.u-paris.fr"
 __status__ = "Developpement"
-
 
 
 def isfile(path: str) -> Path:  # pragma: no cover
@@ -56,20 +58,20 @@ def isfile(path: str) -> Path:  # pragma: no cover
     return myfile
 
 
-def get_arguments(): # pragma: no cover
+def get_arguments():  # pragma: no cover
     """Retrieves the arguments of the program.
 
     :return: An object that contains the arguments
     """
     # Parsing arguments
     parser = argparse.ArgumentParser(description=__doc__, usage=
-                                     "{0} -h"
+    "{0} -h"
                                      .format(sys.argv[0]))
-    parser.add_argument('-i', '-amplicon_file', dest='amplicon_file', type=isfile, required=True, 
+    parser.add_argument('-i', '-amplicon_file', dest='amplicon_file', type=isfile, required=True,
                         help="Amplicon is a compressed fasta file (.fasta.gz)")
-    parser.add_argument('-s', '-minseqlen', dest='minseqlen', type=int, default = 400,
+    parser.add_argument('-s', '-minseqlen', dest='minseqlen', type=int, default=400,
                         help="Minimum sequence length for dereplication (default 400)")
-    parser.add_argument('-m', '-mincount', dest='mincount', type=int, default = 10,
+    parser.add_argument('-m', '-mincount', dest='mincount', type=int, default=10,
                         help="Minimum count for dereplication  (default 10)")
     parser.add_argument('-o', '-output_file', dest='output_file', type=Path,
                         default=Path("OTU.fasta"), help="Output file")
@@ -83,7 +85,18 @@ def read_fasta(amplicon_file: Path, minseqlen: int) -> Iterator[str]:
     :param minseqlen: (int) Minimum amplicon sequence length
     :return: A generator object that provides the Fasta sequences (str).
     """
-    pass
+    with gzip.open(amplicon_file, "rt") as filin:
+        sequence = ""
+        for line in filin:
+            if line.startswith(">"):
+                if len(sequence) >= minseqlen:
+                    yield sequence
+                sequence = ""
+                pass
+            else:
+                sequence += line.strip()
+        if len(sequence) >= minseqlen:
+            yield sequence
 
 
 def dereplication_fulllength(amplicon_file: Path, minseqlen: int, mincount: int) -> Iterator[List]:
@@ -94,7 +107,18 @@ def dereplication_fulllength(amplicon_file: Path, minseqlen: int, mincount: int)
     :param mincount: (int) Minimum amplicon count
     :return: A generator object that provides a (list)[sequences, count] of sequence with a count >= mincount and a length >= minseqlen.
     """
-    pass
+
+    sequences = read_fasta(amplicon_file, minseqlen)
+
+    counts = collections.Counter(sequences)
+    sorts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+
+    for (seq, count) in sorts:
+        if count >= mincount:
+            print(seq[0:5])
+            print(count)
+            yield [seq, count]
+
 
 def get_identity(alignment_list: List[str]) -> float:
     """Compute the identity rate between two sequences
@@ -102,9 +126,18 @@ def get_identity(alignment_list: List[str]) -> float:
     :param alignment_list:  (list) A list of aligned sequences in the format ["SE-QUENCE1", "SE-QUENCE2"]
     :return: (float) The rate of identity between the two sequences.
     """
-    pass
 
-def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: int, chunk_size: int, kmer_size: int) -> List:
+    identical_nt = 0
+    for i in range (len(alignment_list[0])):
+        if alignment_list[0][i] == alignment_list[1][i]:
+            identical_nt += 1
+
+    id_percentage = (identical_nt/len(alignment_list[0]))*100
+    return id_percentage
+
+
+def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: int, chunk_size: int,
+                                kmer_size: int) -> List:
     """Compute an abundance greedy clustering regarding sequence count and identity.
     Identify OTU sequences.
 
@@ -115,7 +148,21 @@ def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: i
     :param kmer_size: (int) A fournir mais non utilise cette annee
     :return: (list) A list of all the [OTU (str), count (int)] .
     """
-    pass
+
+    threshold = 97.0
+    OTUS = []
+    rep_full = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
+    OTUS.append([rep_full[0][0],rep_full[0][1]])
+    for i in range(len(rep_full)):
+        for j in range(i+1, len(rep_full)):
+            if rep_full[i][0] != rep_full[j][0] and rep_full[i][1] > rep_full[j][1]:
+                # Alignmenent :
+                align = nw.global_align(rep_full[i][0], rep_full[j][0], gap_open=-1, gap_extend=-1,
+                                        matrix=str(Path(__file__).parent / "MATCH"))
+                identity = get_identity(align)
+                if identity < threshold:
+                    OTUS.append([rep_full[j][0], rep_full[j][1]])
+    return OTUS
 
 
 def write_OTU(OTU_list: List, output_file: Path) -> None:
@@ -124,20 +171,21 @@ def write_OTU(OTU_list: List, output_file: Path) -> None:
     :param OTU_list: (list) A list of OTU sequences
     :param output_file: (Path) Path to the output file
     """
+
+    
     pass
 
 
-#==============================================================
+# ==============================================================
 # Main program
-#==============================================================
-def main(): # pragma: no cover
+# ==============================================================
+def main():  # pragma: no cover
     """
     Main program function
     """
     # Get arguments
     args = get_arguments()
     # Votre programme ici
-
 
 
 if __name__ == '__main__':
