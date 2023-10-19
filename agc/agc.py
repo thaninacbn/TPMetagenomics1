@@ -172,8 +172,12 @@ def write_OTU(OTU_list: List, output_file: Path) -> None:
     :param output_file: (Path) Path to the output file
     """
 
-    
-    pass
+    with open(output_file, "w") as outfile:
+        for i in range(len(OTU_list)):
+            outfile.write(f">OTU_{i+1} occurrence:{OTU_list[i][1]}\n")
+            outfile.write(textwrap.fill(OTU_list[i][0], width = 80))
+            outfile.write("\n")
+
 
 
 # ==============================================================
@@ -186,6 +190,7 @@ def main():  # pragma: no cover
     # Get arguments
     args = get_arguments()
     # Votre programme ici
+    
 
 
 if __name__ == '__main__':
