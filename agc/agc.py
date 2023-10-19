@@ -116,8 +116,6 @@ def dereplication_fulllength(amplicon_file: Path, minseqlen: int, mincount: int)
 
     for (seq, count) in sorts:
         if count >= mincount:
-            print(seq[0:5])
-            print(count)
             yield [seq, count]
 
 
@@ -137,8 +135,8 @@ def get_identity(alignment_list: List[str]) -> float:
     return id_percentage
 
 
-def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: int, chunk_size: int,
-                                kmer_size: int) -> List:
+def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: int, chunk_size = None,
+                                kmer_size = None) -> List:
     """Compute an abundance greedy clustering regarding sequence count and identity.
     Identify OTU sequences.
 
@@ -150,19 +148,21 @@ def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: i
     :return: (list) A list of all the [OTU (str), count (int)] .
     """
 
-    threshold = 97.0
     OTUS = []
-    rep_full = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
-    OTUS.append([rep_full[0][0], rep_full[0][1]])
-    for i in range(len(rep_full)):
-        for j in range(i + 1, len(rep_full)):
-            if rep_full[i][0] != rep_full[j][0] and rep_full[i][1] > rep_full[j][1]:
-                # Alignmenent :
-                align = nw.global_align(rep_full[i][0], rep_full[j][0], gap_open=-1, gap_extend=-1,
-                                        matrix=str(Path(__file__).parent / "MATCH"))
-                identity = get_identity(align)
-                if identity < threshold:
-                    OTUS.append([rep_full[j][0], rep_full[j][1]])
+    rep_full = dereplication_fulllength(amplicon_file, minseqlen, mincount)
+    OTUS.append(next(rep_full))
+    for seq in rep_full:
+        to_append = True
+        for otu in OTUS:
+            # Alignmenent :
+            align = nw.global_align(seq[0], otu[0], gap_open=-1, gap_extend=-1,
+                                    matrix=str(Path(__file__).parent / "MATCH"))
+            identity = get_identity(align)
+            if identity > 97.0:
+                to_append = False
+                break
+        if to_append:
+            OTUS.append(seq)
     return OTUS
 
 
