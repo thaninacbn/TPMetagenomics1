@@ -27,6 +27,7 @@ from typing import Iterator, Dict, List
 # ftp://ftp.ncbi.nih.gov/blast/matrices/
 import nwalign3 as nw
 import numpy as np
+
 np.int = int
 
 __author__ = "Thanina CHABANE"
@@ -128,11 +129,11 @@ def get_identity(alignment_list: List[str]) -> float:
     """
 
     identical_nt = 0
-    for i in range (len(alignment_list[0])):
+    for i in range(len(alignment_list[0])):
         if alignment_list[0][i] == alignment_list[1][i]:
             identical_nt += 1
 
-    id_percentage = (identical_nt/len(alignment_list[0]))*100
+    id_percentage = (identical_nt / len(alignment_list[0])) * 100
     return id_percentage
 
 
@@ -152,9 +153,9 @@ def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: i
     threshold = 97.0
     OTUS = []
     rep_full = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
-    OTUS.append([rep_full[0][0],rep_full[0][1]])
+    OTUS.append([rep_full[0][0], rep_full[0][1]])
     for i in range(len(rep_full)):
-        for j in range(i+1, len(rep_full)):
+        for j in range(i + 1, len(rep_full)):
             if rep_full[i][0] != rep_full[j][0] and rep_full[i][1] > rep_full[j][1]:
                 # Alignmenent :
                 align = nw.global_align(rep_full[i][0], rep_full[j][0], gap_open=-1, gap_extend=-1,
@@ -174,10 +175,9 @@ def write_OTU(OTU_list: List, output_file: Path) -> None:
 
     with open(output_file, "w") as outfile:
         for i in range(len(OTU_list)):
-            outfile.write(f">OTU_{i+1} occurrence:{OTU_list[i][1]}\n")
-            outfile.write(textwrap.fill(OTU_list[i][0], width = 80))
+            outfile.write(f">OTU_{i + 1} occurrence:{OTU_list[i][1]}\n")
+            outfile.write(textwrap.fill(OTU_list[i][0], width=80))
             outfile.write("\n")
-
 
 
 # ==============================================================
@@ -189,8 +189,8 @@ def main():  # pragma: no cover
     """
     # Get arguments
     args = get_arguments()
-    # Votre programme ici
-    
+    OTUS = abundance_greedy_clustering(args.amplicon_file, args.minseqlen, args.mincount)
+    write_OTU(OTUS, args.output_file)
 
 
 if __name__ == '__main__':
